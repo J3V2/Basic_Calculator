@@ -1,39 +1,14 @@
 # calculator.py
-# from calc_core import operator, format_result
-def operator(a, b, op):
-    op = op.strip()
-    if op == "+":
-        return a + b
-    if op == "-":
-        return a - b
-    if op == "*":
-        return a * b
-    if op == "/":
-        if b == 0:
-            raise ZeroDivisionError("division by zero")
-        return a / b
-    if op == "%":
-        if b == 0:
-            raise ZeroDivisionError("modulo by zero")
-        return a % b
-    if op in ("**", "^"):
-        return a ** b
-    raise ValueError(f"Invalid operator: {op}")
 
-
-def pretty_number(x):
-    if isinstance(x, float) and x.is_integer():
-        return int(x)
-    return x
-
-
-def format_result(a, b, op, result):
-    return f"{pretty_number(a)} {op} {pretty_number(b)} = {pretty_number(result)}"
+from calc_core import operator, format_result
 
 
 def get_number(prompt, ans=None):
     while True:
         s = input(prompt).strip()
+        # allow quitting while entering a number
+        if s.lower() in ("q", "exit"):
+            raise SystemExit("Goodbye!")
         if s.lower() == "ans":
             if ans is None:
                 print("No previous answer yet.")
@@ -42,32 +17,46 @@ def get_number(prompt, ans=None):
         try:
             return float(s)
         except ValueError:
-            print("Enter a valid number or 'ans'.")
+            print("Enter a valid number, 'ans', or 'q' to quit.")
 
 
 def main():
     ans = None
     history = []
-    while True:
-        a = get_number("Enter First Number (or 'ans'): ", ans)
-        op = input("Enter Operator (+ - * / ** ^ %): ").strip()
-        if op.lower() in ("q", "exit"):
-            print("Goodbye!")
-            break
-        b = get_number("Enter Second Number (or 'ans'): ", ans)
 
-        try:
-            actual_op = "**" if op == "^" else op
-            res = operator(a, b, actual_op)
-        except Exception as e:
-            print(f"Error: {e}")
-            continue
+    try:
+        while True:
+            a = get_number("Enter First Number (or 'ans'): ", ans)
 
-        display_op = "^" if actual_op == "**" else actual_op
-        print(format_result(a, b, display_op, res))
-        # update session
-        ans = res
-        history.append(format_result(a, b, display_op, res))
+            op = input(
+                "Enter Operator (+ - * / ** ^ %), or 'q' to quit: ").strip()
+            if op.lower() in ("q", "exit"):
+                print("Goodbye!")
+                break
+
+            b = get_number("Enter Second Number (or 'ans'): ", ans)
+
+            try:
+                actual_op = "**" if op == "^" else op
+                res = operator(a, b, actual_op)
+            except Exception as e:
+                print(f"Error: {e}")
+                # continue main loop (allows user to try again)
+                continue
+
+            display_op = "^" if actual_op == "**" else actual_op
+            print(format_result(a, b, display_op, res))
+
+            ans = res
+            history.append(format_result(a, b, display_op, res))
+
+            resp = input(
+                "Press Enter to continue, or type 'q' to quit: ").strip().lower()
+            if resp in ("q", "exit"):
+                print("Goodbye!")
+                break
+    except SystemExit as e:
+        print(e)
 
 
 if __name__ == "__main__":
