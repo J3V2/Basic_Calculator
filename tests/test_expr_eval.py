@@ -37,3 +37,27 @@ def test_ans_usage():
 
 def test_caret_alias():
     assert ev.eval("2 ^ 3") == 8
+
+
+def test_sin_pi_over_2():
+    assert ev.eval("sin(pi/2)") == 1.0
+
+
+def test_sqrt_and_log():
+    assert ev.eval("sqrt(16)") == 4
+    assert pytest.approx(ev.eval("log(e)"), rel=1e-12) == 1.0
+
+
+def test_invalid_function():
+    with pytest.raises(ValueError):
+        ev.eval("open('file')")
+
+
+def test_attribute_not_allowed():
+    with pytest.raises(ValueError):
+        ev.eval("__import__('os').system('ls')")
+
+
+def test_bad_arg_count():
+    with pytest.raises(TypeError):  # or ValueError depending how you validate
+        ev.eval("sqrt(1,2)")
