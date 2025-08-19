@@ -1,6 +1,9 @@
 # calculator.py
 
 from calc_core import operator, format_result
+from expr_eval import ExpressionEvaluator
+
+_evaluator = ExpressionEvaluator(allow_ans=True)
 
 
 def get_number(prompt, ans=None):
@@ -14,10 +17,18 @@ def get_number(prompt, ans=None):
                 print("No previous answer yet.")
                 continue
             return ans
+        # Try plain float first (fast friendly path)
         try:
             return float(s)
         except ValueError:
-            print("Enter a valid number, 'ans', or 'q' to quit.")
+            # not a plain number — try expression evaluator
+            try:
+                val = _evaluator.eval(s, ans=ans)
+                # Convert float-like integers to int for nicer display if desired:
+                return int(val) if isinstance(val, float) and val.is_integer() else val
+            except Exception as e:
+                print("Invalid expression:", e)
+                continue
 
 
 def main():
