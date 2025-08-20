@@ -50,11 +50,14 @@ class ExpressionEvaluator:
 
     def __init__(self, allow_ans: bool = True, allowed_names: Optional[dict] = None):
         self.allow_ans = bool(allow_ans)
-        # copy so callers can mutate their dict without affecting the class-level mapping
         self.allowed_names = (allowed_names.copy() if allowed_names is not None
                               else DEFAULT_ALLOWED_NAMES.copy())
 
-    def eval(self, expression: str, ans: Optional[Number] = None) -> Number:
+    def eval(self, expression: str, ans: Optional[Number] = None,
+             variables: Optional[dict] = None) -> Number:
+        """
+        Evaluate expression string. variables is a dict of name->numeric value.
+        """
         if expression is None:
             raise ValueError("No expression provided")
         # friendly: allow '^' as exponent operator
@@ -66,13 +69,13 @@ class ExpressionEvaluator:
         except SyntaxError as e:
             raise ValueError(f"Invalid expression: {e}")
 
-        return self._eval_node(node.body, ans)
+        return self._eval_node(node.body, ans, variables or {})
 
-    def _eval_node(self, node: ast.AST, ans: Optional[Number]) -> Number:
+    def _eval_node(self, node: ast.AST, ans: Optional[Number], variables: dict) -> Number:
         # Binary operations
         if isinstance(node, ast.BinOp):
-            left = self._eval_node(node.left, ans)
-            right = self._eval_node(node.right, ans)
+            left = self._eval_node(node.left, ans, variables)
+            right = self._eval_node(node.right, ans, variables)
             op_type = type(node.op)
             func = _BIN_OPS.get(op_type)
             if func is None:
@@ -82,7 +85,7 @@ class ExpressionEvaluator:
 
         # Unary operations + and -
         if isinstance(node, ast.UnaryOp):
-            operand = self._eval_node(node.operand, ans)
+            operand = self._eval_node(node.operand, ans, variables)
             op_type = type(node.op)
             func = _UNARY_OPS.get(op_type)
             if func is None:
@@ -98,9 +101,8 @@ class ExpressionEvaluator:
             fname = node.func.id
             if fname not in self.allowed_names or not callable(self.allowed_names[fname]):
                 raise ValueError(f"Function '{fname}' is not allowed")
-            # evaluate positional args only (no keywords)
-            args = [self._eval_node(a, ans) for a in node.args]
-            # let underlying function raise TypeError for wrong arity
+            # evaluate positional args only
+            args = [self._eval_node(a, ans, variables) for a in node.args]
             return self.allowed_names[fname](*args)
 
         # Numeric literal (Python 3.8+: ast.Constant)
@@ -109,18 +111,26 @@ class ExpressionEvaluator:
                 return node.value
             raise ValueError("Only numeric literals are allowed")
 
-        # # For older Pythons (Num node)
-        # if isinstance(node, ast.Num):  # type: ignore[name-defined]
-        #     return node.n  # type: ignore[attr-defined]
+        # For older Pythons (Num node)
+        if isinstance(node, ast.Num):  # type: ignore[name-defined]
+            return node.n  # type: ignore[attr-defined]
 
-        # Names: allow 'ans' (if enabled) and allowed constants (or function objects
-        # if someone references them without calling them — calling them is done via ast.Call)
+        # Names: allow 'ans' (if enabled), variables, and allowed constants (or functions)
         if isinstance(node, ast.Name):
+            # ans (special)
             if node.id == "ans" and self.allow_ans:
                 if ans is None:
                     raise ValueError(
                         "No previous answer available (ans is None)")
                 return ans
+            # variables take precedence
+            if node.id in variables:
+                val = variables[node.id]
+                if not isinstance(val, (int, float)):
+                    raise ValueError(
+                        f"Variable '{node.id}' does not hold a numeric value")
+                return val
+            # allowed names (constants or function objects)
             if node.id in self.allowed_names:
                 return self.allowed_names[node.id]
             raise ValueError(f"Use of name '{node.id}' is not allowed")

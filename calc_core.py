@@ -26,5 +26,5 @@ def pretty_number(x):
     return x
 
 
-def format_result(a, b, op, result):
-    return f"{pretty_number(a)} {op} {pretty_number(b)} = {pretty_number(result)}"
+# def format_result(a, b, op, result):
+#     return f"{pretty_number(a)} {op} {pretty_number(b)} = {pretty_number(result)}"
