@@ -344,7 +344,7 @@ class CalculatorGUI(tk.Tk):
             self.state["vars"][name] = val
             self.state["ans"] = val
             self.state["history"].append(
-                {"expr": raw, "result": val, "time": datetime.datetime.utcnow().isoformat()})
+                {"expr": raw, "result": val, "time": datetime.datetime.now(datetime.UTC).isoformat()})
             self._refresh_result_display()
             return True, f"{name} = {val}"
 
