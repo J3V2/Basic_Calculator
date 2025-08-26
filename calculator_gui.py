@@ -3,6 +3,7 @@
 Full-feature GUI for Basic Calculator.
 Requires: expr_eval.py (ExpressionEvaluator)
 Saves session to ~/.basic_calculator/session.json
+Exports default to ~/.basic_calculator/exports/
 """
 
 import os
@@ -16,23 +17,34 @@ import keyword
 import re
 from decimal import Decimal
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import ttk, messagebox, simpledialog, filedialog
 from tkinter.scrolledtext import ScrolledText
 from expr_eval import ExpressionEvaluator
 
+# ------------------------
+# Paths / session / exports
+# ------------------------
 HOME_DIR = pathlib.Path.home()
 SESSION_DIR = HOME_DIR / ".basic_calculator"
 SESSION_DIR.mkdir(parents=True, exist_ok=True)
 SESSION_PATH = SESSION_DIR / "session.json"
 
-NAME_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
+# Exports directory inside session folder (keeps project root clean)
+EXPORTS_DIR = SESSION_DIR / "exports"
+EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
+# ------------------------
+# Globals & evaluator
+# ------------------------
+NAME_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
 evaluator = ExpressionEvaluator(allow_ans=True)
 
-# Load plugins (if any) - each plugin .py should expose register(mapping)
 
-
+# ------------------------
+# Plugin loader
+# ------------------------
 def load_plugins(plugins_dir="plugins"):
+    """Load plugin modules from 'plugins' directory. Each plugin should define register(mapping)."""
     plugins_path = pathlib.Path(plugins_dir)
     if not plugins_path.exists():
         return
@@ -49,23 +61,31 @@ def load_plugins(plugins_dir="plugins"):
     sys.path.pop(0)
 
 
+# ------------------------
+# Session persistence
+# ------------------------
 def save_session(state, path=SESSION_PATH):
-    # convert Decimal to str for JSON
+    """Serialize state (convert Decimal to str)"""
     out = {
         "ans": str(state["ans"]) if isinstance(state.get("ans"), Decimal) else state.get("ans"),
         "vars": {k: (str(v) if isinstance(v, Decimal) else v) for k, v in state["vars"].items()},
         "history": [
-            {"expr": h["expr"], "result": (str(h["result"]) if isinstance(h["result"], Decimal) else h["result"]),
-             "time": h["time"]} for h in state["history"]
+            {
+                "expr": h["expr"],
+                "result": (str(h["result"]) if isinstance(h["result"], Decimal) else h["result"]),
+                "time": h["time"],
+            }
+            for h in state["history"]
         ],
         "memory": (str(state["memory"]) if isinstance(state["memory"], Decimal) else state["memory"]),
-        "mode": state["mode"]
+        "mode": state["mode"],
     }
     with open(path, "w", encoding="utf-8") as f:
         json.dump(out, f, indent=2)
 
 
 def load_session(path=SESSION_PATH):
+    """Load session JSON and convert numeric strings back to Decimal when possible"""
     if not path.exists():
         return {"ans": None, "vars": {}, "history": [], "memory": 0.0, "mode": "float", "_undo": []}
     with open(path, "r", encoding="utf-8") as f:
@@ -76,6 +96,7 @@ def load_session(path=SESSION_PATH):
             return Decimal(x)
         except Exception:
             return x
+
     vars_parsed = {k: maybe_decimal(v) for k, v in raw.get("vars", {}).items()}
     hist = []
     for h in raw.get("history", []):
@@ -87,6 +108,9 @@ def load_session(path=SESSION_PATH):
     return {"ans": ans, "vars": vars_parsed, "history": hist, "memory": mem, "mode": mode, "_undo": []}
 
 
+# ------------------------
+# Export helper
+# ------------------------
 def export_history_csv(state, filename):
     with open(filename, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
@@ -95,6 +119,27 @@ def export_history_csv(state, filename):
             w.writerow([i, h["expr"], h["result"], h["time"]])
 
 
+def auto_export_history(state, base_dir=EXPORTS_DIR, prefix="history"):
+    """
+    Auto-export history to a timestamped CSV in base_dir.
+    Returns the path written. Raises on error.
+    """
+    base_dir = pathlib.Path(base_dir)
+    base_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H-%M-%S")
+    base_name = f"{prefix}_{ts}.csv"
+    path = base_dir / base_name
+    counter = 1
+    while path.exists():
+        path = base_dir / f"{prefix}_{ts}_{counter}.csv"
+        counter += 1
+    export_history_csv(state, str(path))
+    return str(path)
+
+
+# ------------------------
+# Utilities
+# ------------------------
 def is_valid_name(name, deny):
     if not NAME_RE.match(name):
         return False, "Variable names must start with a letter/underscore and contain letters/digits/underscore."
@@ -138,10 +183,13 @@ def undo(state):
     return False, "Unknown undo kind."
 
 
+# ------------------------
+# GUI application
+# ------------------------
 class CalculatorGUI(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Basic Calculator — Full")
+        self.title("Basic Calculator")
         self.geometry("480x640")
         self.minsize(360, 480)
 
@@ -150,7 +198,7 @@ class CalculatorGUI(tk.Tk):
         # ensure _undo exists
         if "_undo" not in self.state:
             self.state["_undo"] = []
-        # load plugins
+        # load plugins (if any)
         load_plugins()
 
         # build UI
@@ -191,22 +239,27 @@ class CalculatorGUI(tk.Tk):
 
         for r, row in enumerate(rows):
             for c, label in enumerate(row):
-                def cmd(t=label): return self._on_button(t)
+                # capture label in default arg so closure works correctly
+                cmd = (lambda t=label: self._on_button(t))
                 b = ttk.Button(btn_frame, text=label, command=cmd)
                 b.grid(row=r, column=c, sticky="nsew", padx=4, pady=4)
 
         # make grid expandable
-        cols = max(len(r) for r in rows)
+        cols = max(len(row) for row in rows)
         for c in range(cols):
             btn_frame.columnconfigure(c, weight=1)
         for r in range(len(rows)):
             btn_frame.rowconfigure(r, weight=1)
 
-        # bottom: status and history quick view button
+        # bottom: status and history quick view button + auto export
         bottom = ttk.Frame(self)
         bottom.pack(fill="x", padx=8, pady=6)
         self.mode_label = ttk.Label(bottom, text=f"Mode: {self.state['mode']}")
         self.mode_label.pack(side="left")
+
+        # Auto Export button (saves to EXPORTS_DIR with timestamp) and Show History
+        ttk.Button(bottom, text="Auto Export",
+                   command=self._auto_export).pack(side="right", padx=4)
         ttk.Button(bottom, text="Show History",
                    command=self.show_history_window).pack(side="right")
 
@@ -416,17 +469,50 @@ class CalculatorGUI(tk.Tk):
             "Mode", f"Mode set to {new}. (Functions disabled in decimal mode)")
 
     def _export_history(self):
-        # ask for filename
-        fn = simpledialog.askstring(
-            "Export history", "Filename (e.g. myhistory.csv):")
+        """
+        Export history using a Save As dialog.
+        Default folder is EXPORTS_DIR (session-based).
+        CSV if filename ends with .csv, otherwise plain text.
+        """
+        # default filename with timestamp
+        ts = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H-%M-%S")
+        default_name = f"history_{ts}.csv"
+
+        fn = filedialog.asksaveasfilename(
+            initialdir=str(EXPORTS_DIR),
+            initialfile=default_name,
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"),
+                       ("Text files", "*.txt"), ("All files", "*.*")],
+            title="Save history as..."
+        )
         if not fn:
-            return
+            return  # user cancelled
+
         try:
-            export_history_csv(self.state, fn)
+            if fn.lower().endswith(".csv"):
+                export_history_csv(self.state, fn)
+            else:
+                with open(fn, "w", encoding="utf-8", newline="") as f:
+                    for i, h in enumerate(self.state["history"], 1):
+                        time = h.get("time", "")
+                        expr = h.get("expr", "")
+                        result = h.get("result", "")
+                        f.write(f"{i}\t{time}\t{expr} = {result}\n")
         except Exception as e:
-            messagebox.showerror("Export", f"Failed: {e}")
+            messagebox.showerror("Export", f"Failed to save history: {e}")
             return
-        messagebox.showinfo("Export", f"History exported to {fn}")
+
+        messagebox.showinfo("Export", f"History saved to\n{fn}")
+
+    def _auto_export(self):
+        """Auto-export history to EXPORTS_DIR with a timestamped filename (no dialog)."""
+        try:
+            saved = auto_export_history(self.state)
+        except Exception as e:
+            messagebox.showerror("Auto Export", f"Failed to auto-export: {e}")
+            return
+        messagebox.showinfo("Auto Export", f"History auto-saved to:\n{saved}")
 
     def show_history_window(self):
         win = tk.Toplevel(self)
@@ -437,17 +523,18 @@ class CalculatorGUI(tk.Tk):
             txt.insert(
                 "end", f"{i}: {h['expr']} = {h['result']}  ({h['time']})\n")
         txt.configure(state="disabled")
-        # clickable reinsert: double click line to put expression back in entry
 
+        # clickable reinsert: double click line to put expression back in entry
         def on_double_click(event):
-            idx = txt.index("@%s,%s linestart" % (event.x, event.y))
             try:
+                idx = txt.index("@%s,%s linestart" % (event.x, event.y))
                 line = txt.get(idx, f"{idx} lineend")
                 expr = line.split(":", 1)[1].split("=", 1)[0].strip()
                 self.expr_var.set(expr)
                 win.destroy()
             except Exception:
                 pass
+
         txt.bind("<Double-Button-1>", on_double_click)
         ttk.Button(win, text="Close", command=win.destroy).pack(pady=6)
 
@@ -475,6 +562,9 @@ class CalculatorGUI(tk.Tk):
         self.destroy()
 
 
+# ------------------------
+# Entrypoint
+# ------------------------
 def main():
     app = CalculatorGUI()
     app.protocol("WM_DELETE_WINDOW", app.on_closing)
