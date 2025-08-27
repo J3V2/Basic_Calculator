@@ -259,7 +259,7 @@ def process_input(raw: str, state: dict, evaluator: ExpressionEvaluator):
         state["vars"][name] = val
         state["ans"] = val
         entry = {"expr": raw, "result": val,
-                 "time": datetime.datetime.utcnow().isoformat()}
+                 "time": datetime.datetime.now(datetime.UTC).isoformat()}
         state["history"].append(entry)
         return True, f"{name} = {val}", state
 
@@ -275,7 +275,7 @@ def process_input(raw: str, state: dict, evaluator: ExpressionEvaluator):
     push_undo(state, "calc", {"old_ans": old_ans})
     state["ans"] = val
     entry = {"expr": raw, "result": val,
-             "time": datetime.datetime.utcnow().isoformat()}
+             "time": datetime.datetime.now(datetime.UTC).isoformat()}
     state["history"].append(entry)
     return True, f"{raw} = {val}", state
 

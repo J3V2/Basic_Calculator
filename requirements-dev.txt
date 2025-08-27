@@ -1,0 +1,8 @@
+pytest
+coverage
+build
+twine
+pre-commit
+black
+isort
+flake8

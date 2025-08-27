@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "basic-calculator"
+version = "0.1.0"
+description = "Safe, extensible calculator with expression evaluator, REPL and GUI."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{name="Jasfer Daniel"}]
+license = {text = "GPL-3.0-or-later"}
+
+[project.scripts]
+basic-calculator = "calculator:main"
