@@ -142,10 +142,10 @@ class ExpressionEvaluator:
                 return self._to_number(node.value, decimal)
             raise ValueError("Only numeric literals are allowed")
 
-        # For old Python: ast.Num
-        if isinstance(node, ast.Num):  # type: ignore[name-defined]
-            # type: ignore[attr-defined]
-            return self._to_number(node.n, decimal)
+        # # For old Python: ast.Num
+        # if isinstance(node, ast.Num):  # type: ignore[name-defined]
+        #     # type: ignore[attr-defined]
+        #     return self._to_number(node.n, decimal)
 
         # Name: variables take precedence, then ans, then allowed_names
         if isinstance(node, ast.Name):

@@ -1,0 +1,8 @@
+py -m pytest -q
+coverage
+build
+twine
+pre-commit
+black
+isort
+flake8

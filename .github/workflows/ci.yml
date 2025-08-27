@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    env:
+      # make tests export into workspace/exports by default (useful for plugin tests/artifacts)
+      CALC_EXPORTS_DIR: ${{ github.workspace }}/exports
+    strategy:
+      matrix:
+        python-version: [3.9, 3.10, 3.11]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements-dev.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements-dev.txt ]; then python -m pip install -r requirements-dev.txt; fi
+
+      - name: Run tests (pytest) and produce junit report
+        run: |
+          mkdir -p pytest-reports
+          # run pytest using the current python interpreter
+          python -m pytest -q --maxfail=1 --junitxml=pytest-reports/junit-${{ matrix.python-version }}.xml
+
+      - name: Upload pytest report (artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-reports-${{ matrix.python-version }}
+          path: pytest-reports/
+
+      - name: Build wheel and sdist
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build
+          python -m build
+
+      - name: Upload dist artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.python-version }}
+          path: dist/*
