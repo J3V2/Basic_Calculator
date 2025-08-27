@@ -10,11 +10,10 @@ jobs:
   test-and-build:
     runs-on: ubuntu-latest
     env:
-      # make tests export into workspace/exports by default (useful for plugin tests/artifacts)
       CALC_EXPORTS_DIR: ${{ github.workspace }}/exports
     strategy:
       matrix:
-        python-version: [3.9, 3.10, 3.11]
+        python-version: [3.11, 3.12, 3.13]
 
     steps:
       - name: Checkout repo
@@ -41,7 +40,6 @@ jobs:
       - name: Run tests (pytest) and produce junit report
         run: |
           mkdir -p pytest-reports
-          # run pytest using the current python interpreter
           python -m pytest -q --maxfail=1 --junitxml=pytest-reports/junit-${{ matrix.python-version }}.xml
 
       - name: Upload pytest report (artifact)

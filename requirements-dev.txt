@@ -1,4 +1,4 @@
-py -m pytest -q
+pytest
 coverage
 build
 twine
