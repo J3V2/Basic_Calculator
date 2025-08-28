@@ -15,4 +15,4 @@ license = {text = "GPL-3.0-or-later"}
 basic-calculator = "calculator:main"
 
 [tool.setuptools]
-packages = ["api", "plugins", "calculator"]
+packages = ["api", "plugins"]
