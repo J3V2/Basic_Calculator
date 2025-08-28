@@ -36,11 +36,6 @@ jobs:
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
           pip install -r requirements.txt
 
-      - name: Install package
-        run: |
-          # Install your repo as a package in editable mode
-          pip install -e .
-
       - name: Run tests (pytest) and produce junit report
         run: |
           mkdir -p pytest-reports
