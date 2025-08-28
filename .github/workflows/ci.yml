@@ -48,7 +48,11 @@ jobs:
         run: |
           # Install your repo as a package in editable mode
           pip install -e .
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> ec1aa6ad399a3124a6d2f41ddfdd5a77d15c9921
       - name: Run tests (pytest) and produce junit report
         run: |
           mkdir -p pytest-reports
