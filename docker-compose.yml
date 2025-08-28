@@ -1,0 +1,36 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: bc_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  api:
+    build: .
+    container_name: bc_api
+    restart: unless-stopped
+    depends_on:
+      - redis
+    environment:
+      # tell Flask-Limiter to use the Redis service
+      - RATELIMIT_STORAGE_URL=redis://redis:6379/0
+      # optionally tune number of workers / bind in env if your Dockerfile/entrypoint reads them
+      - GUNICORN_CMD_ARGS=--workers 2 --threads 4 --bind 0.0.0.0:8000
+    ports:
+      - "8000:8000"
+    # useful for development: uncomment to mount local code into container (no rebuild needed)
+    # volumes:
+    #   - ./:/app:delegated
+    # command: ["gunicorn", "--bind", "0.0.0.0:8000", "api.app:app", "--workers", "2", "--threads", "4"]
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  redis_data:
