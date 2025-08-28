@@ -1,6 +1,15 @@
-
+# Virtual env
+.venv/
 venv/
 __pycache__/
 *.pyc
-.DS_Store
-.env
+dist/
+build/
+*.egg-info
+
+# session / user data
+.basic_calculator/
+# developer exports (if accidentally created in repo)
+exports/
+*.csv
+*.sqlite3

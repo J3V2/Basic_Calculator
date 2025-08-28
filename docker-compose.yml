@@ -1,0 +1,39 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: basic_calculator_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  api:
+    build: .
+    container_name: basic_calculator_api
+    restart: unless-stopped
+    depends_on:
+      - redis
+    environment:
+      # Flask-Limiter will use Redis
+      - RATELIMIT_STORAGE_URL=redis://redis:6379/0
+      # Gunicorn tuning
+      - GUNICORN_CMD_ARGS=--workers 2 --threads 4 --bind 0.0.0.0:8000
+    ports:
+      - "8000:8000"
+    # Uncomment for local development (hot reload)
+    # volumes:
+    #   - ./:/app:delegated
+    # command: ["flask", "run", "--host=0.0.0.0", "--port=8000", "--reload"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  redis_data:
