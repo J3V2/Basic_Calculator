@@ -13,3 +13,6 @@ license = {text = "GPL-3.0-or-later"}
 
 [project.scripts]
 basic-calculator = "calculator:main"
+
+[tool.setuptools]
+packages = ["api", "plugins", "calculator"]

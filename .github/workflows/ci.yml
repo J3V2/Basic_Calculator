@@ -23,6 +23,7 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
 
       - name: Cache pip
         uses: actions/cache@v4
@@ -36,6 +37,17 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements-dev.txt ]; then python -m pip install -r requirements-dev.txt; fi
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+          pip install -r requirements.txt
+
+      - name: Install package
+        run: |
+          # Install your repo as a package in editable mode
+          pip install -e .
 
       - name: Run tests (pytest) and produce junit report
         run: |
@@ -61,4 +73,3 @@ jobs:
         with:
           name: dist-${{ matrix.python-version }}
           path: dist/*
-
